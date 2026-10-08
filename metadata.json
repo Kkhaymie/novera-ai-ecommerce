@@ -1,0 +1,6 @@
+{
+  "name": "NOVERA",
+  "description": "Premium Pan-African e-commerce marketplace combining curated product discovery, multi-country commerce across Nigeria, Ghana, South Africa, Kenya, Tanzania, and Benin Republic, and Novera AI shopping intelligence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

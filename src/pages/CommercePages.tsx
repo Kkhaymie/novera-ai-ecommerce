@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ShoppingBag,
   Heart,
@@ -10,15 +10,34 @@ import {
   PackageCheck,
 } from 'lucide-react';
 import { useCommerce } from '../context/CommerceContext';
-import { CATEGORY_TILES, formatCurrencyAmount } from '../data/catalogue';
+import {
+  CATALOGUE_CATEGORIES,
+  CATEGORY_REPRESENTATIVE_IMAGES,
+  formatCurrencyAmount,
+} from '../data/catalogue';
 import { ResilientImage } from '../components/ResilientImage';
 import { ProductCard } from '../components/ProductCard';
 
 export function CategoriesPage() {
-  const { navigate, setActiveCategory, openAIWithPrompt } = useCommerce();
+  const { products, navigate, setActiveCategory } = useCommerce();
 
-  const handleSelect = (slug: string) => {
-    setActiveCategory(slug);
+  const categorySummaries = useMemo(() => {
+    return CATALOGUE_CATEGORIES.map((category) => {
+      const items = products.filter((p) => p.category === category);
+      return {
+        category,
+        count: items.length,
+        sampleNames: items
+          .slice(0, 3)
+          .map((i) => i.name)
+          .join(' · '),
+        imageUrl: CATEGORY_REPRESENTATIVE_IMAGES[category],
+      };
+    });
+  }, [products]);
+
+  const handleSelect = (category: string) => {
+    setActiveCategory(category);
     navigate('/shop');
   };
 
@@ -27,48 +46,47 @@ export function CategoriesPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#1E293B]">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#087F5B] mb-1">
-            DEPARTMENT DIRECTORY
+            Novera Catalogue
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-white">
-            Browse Novera Categories
+            All 11 Product Categories
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={() =>
-            openAIWithPrompt('What product categories are available in the live Novera catalogue?')
-          }
-          className="py-2.5 px-4 rounded-xl bg-[#101828] border border-[#1E293B] hover:border-[#087F5B] text-xs font-semibold text-[#C8F75A] inline-flex items-center gap-2 transition-colors whitespace-nowrap"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Ask Novera AI for Live Department Inventory</span>
-        </button>
+        <p className="text-xs text-[#94A3B8]">
+          178 total products across 11 departments
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {CATEGORY_TILES.map((cat) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {categorySummaries.map(({ category, count, sampleNames, imageUrl }) => (
           <div
-            key={cat.id}
-            onClick={() => handleSelect(cat.slug)}
-            className="group relative rounded-2xl overflow-hidden border border-[#1E293B] hover:border-[#334155] bg-[#101828] cursor-pointer aspect-[16/10] flex flex-col justify-end"
+            key={category}
+            onClick={() => handleSelect(category)}
+            className="group rounded-2xl overflow-hidden border border-[#1E293B] bg-[#101828] cursor-pointer flex flex-col justify-between novera-card-hover"
           >
-            <div className="absolute inset-0">
+            <div className="aspect-[16/10] w-full bg-[#0D1422] overflow-hidden relative">
               <ResilientImage
-                src={cat.imageUrl}
-                alt={cat.name}
+                src={imageUrl}
+                alt={category}
+                category={category}
+                fallbackLabel={category}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F17] via-[#0B0F17]/40 to-transparent" />
             </div>
 
-            <div className="relative z-10 p-6 flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-white group-hover:text-[#C8F75A] transition-colors">
-                  {cat.name}
+            <div className="p-5 flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xs font-mono-tabular text-[#087F5B] font-semibold">
+                  {count} Products
+                </div>
+                <h2 className="text-lg font-bold text-white group-hover:text-[#C8F75A] transition-colors mt-0.5">
+                  {category}
                 </h2>
-                <p className="text-xs text-[#CBD5E1] mt-1 max-w-md">{cat.description}</p>
+                <p className="text-xs text-[#94A3B8] truncate mt-1">
+                  {sampleNames}
+                </p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#101828]/90 border border-[#1E293B] group-hover:bg-[#087F5B] flex items-center justify-center text-white transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-[#0B0F17] border border-[#1E293B] group-hover:bg-[#087F5B] flex items-center justify-center text-white transition-colors shrink-0">
                 <ArrowUpRight className="w-4 h-4" />
               </div>
             </div>
@@ -99,9 +117,9 @@ export function CartPage() {
       <div className="flex items-center justify-between border-b border-[#1E293B] pb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#087F5B] mb-1">
-            NOVERA BAG & REVIEW
+            Novera Shopping Cart
           </p>
-          <h1 className="font-display text-3xl font-bold text-white">Shopping Bag</h1>
+          <h1 className="font-display text-3xl font-bold text-white">Your Cart</h1>
         </div>
         {cart.length > 0 && (
           <button
@@ -110,7 +128,7 @@ export function CartPage() {
             className="inline-flex items-center gap-1.5 text-xs text-[#94A3B8] hover:text-rose-400 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            <span>Empty Shopping Bag</span>
+            <span>Empty Cart</span>
           </button>
         )}
       </div>
@@ -120,10 +138,10 @@ export function CartPage() {
           <CheckCircle2 className="w-6 h-6 text-[#C8F75A] shrink-0 mt-0.5" />
           <div className="space-y-1">
             <h2 className="text-base font-bold text-white">
-              Demonstration Order Review Recorded (No Payment Processed)
+              Demonstration Checkout Notice (No Payment Processed)
             </h2>
             <p className="text-xs text-[#CBD5E1] leading-relaxed">
-              This is an explicit demonstration checkout state. Live payment gateways and card collection are disabled. To place an actual enquiry or get assistance with a Novera order, please use Novera AI.
+              Live checkout and payment processing are not connected in this demonstration environment. No card or bank details are collected. Ask Novera AI if you need assistance with products or policies.
             </p>
           </div>
         </div>
@@ -132,9 +150,9 @@ export function CartPage() {
       {cart.length === 0 ? (
         <div className="p-12 rounded-2xl bg-[#101828] border border-[#1E293B] text-center max-w-lg mx-auto space-y-4">
           <ShoppingBag className="w-10 h-10 text-[#087F5B] mx-auto" />
-          <h2 className="text-lg font-bold text-white">Your shopping bag is empty</h2>
+          <h2 className="text-lg font-bold text-white">Your shopping cart is empty</h2>
           <p className="text-xs text-[#94A3B8]">
-            Browse our departments or ask Novera AI to recommend products tailored to your budget.
+            Browse all 178 products in our shop or ask Novera AI for personalized recommendations.
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <button
@@ -142,14 +160,7 @@ export function CartPage() {
               onClick={() => navigate('/shop')}
               className="py-2.5 px-5 rounded-xl bg-[#087F5B] text-white text-xs font-semibold"
             >
-              Explore Products
-            </button>
-            <button
-              type="button"
-              onClick={() => openAIWithPrompt('Recommend products under my budget')}
-              className="py-2.5 px-5 rounded-xl bg-[#0B0F17] border border-[#1E293B] text-[#C8F75A] text-xs font-semibold"
-            >
-              Ask Novera AI
+              Browse Shop
             </button>
           </div>
         </div>
@@ -164,17 +175,22 @@ export function CartPage() {
                 <div className="flex items-center gap-4">
                   <div
                     onClick={() => navigate(`/product/${product.id}`)}
-                    className="w-24 h-20 rounded-xl overflow-hidden bg-[#18181B] shrink-0 cursor-pointer"
+                    className="w-20 h-20 rounded-xl overflow-hidden bg-[#F8FAFC] border border-[#CBD5E1] shrink-0 cursor-pointer"
                   >
                     <ResilientImage
                       src={product.imageUrl}
                       alt={product.name}
-                      className="w-full h-full object-cover"
+                      category={product.category}
+                      brand={product.brand}
+                      colour={product.colour}
+                      productId={product.product_id}
+                      compact
+                      className="w-full h-full object-contain"
                     />
                   </div>
                   <div>
                     <div className="text-xs text-[#94A3B8]">
-                      {product.brand} · {product.category}
+                      {product.brand} · {product.product_id}
                     </div>
                     <h3
                       onClick={() => navigate(`/product/${product.id}`)}
@@ -182,8 +198,8 @@ export function CartPage() {
                     >
                       {product.name}
                     </h3>
-                    <div className="text-sm font-mono-tabular text-[#C8F75A] mt-1">
-                      {formatCurrencyAmount(product.price, product.currency)} each
+                    <div className="text-sm font-mono-tabular text-[#CBD5E1] mt-1">
+                      {formatCurrencyAmount(product.price, 'NGN')} each
                     </div>
                   </div>
                 </div>
@@ -209,7 +225,7 @@ export function CartPage() {
 
                   <div className="text-right min-w-[110px]">
                     <div className="text-sm font-bold font-mono-tabular text-white">
-                      {formatCurrencyAmount(product.price * quantity, product.currency)}
+                      {formatCurrencyAmount(product.price * quantity, 'NGN')}
                     </div>
                     <button
                       type="button"
@@ -224,10 +240,9 @@ export function CartPage() {
             ))}
           </div>
 
-          {/* Summary Card */}
           <div className="lg:col-span-4 p-6 rounded-2xl bg-[#101828] border border-[#1E293B] space-y-5">
             <h2 className="text-base font-bold text-white border-b border-[#1E293B] pb-3">
-              Bag Summary (By Currency)
+              Order Summary
             </h2>
 
             <div className="space-y-2">
@@ -241,26 +256,28 @@ export function CartPage() {
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                const summary = currencyEntries
-                  .map(([curr, amt]) => `${formatCurrencyAmount(amt, curr)} (${curr})`)
-                  .join(', ');
-                openAIWithPrompt(
-                  `Convert my shopping bag total of ${summary} to ${selectedMarket.name} (${selectedMarket.currency}).`
-                );
-              }}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#0B0F17] border border-[#1E293B] hover:border-[#087F5B] text-xs font-semibold text-[#C8F75A] flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Convert Total to {selectedMarket.currency} via Novera AI</span>
-            </button>
+            {selectedMarket.currency !== 'NGN' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = currencyEntries
+                    .map(([curr, amt]) => `${formatCurrencyAmount(amt, curr)}`)
+                    .join(', ');
+                  openAIWithPrompt(
+                    `Convert my cart total of ${summary} into ${selectedMarket.name} (${selectedMarket.currency}).`
+                  );
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-[#0B0F17] border border-[#1E293B] text-xs font-semibold text-[#C8F75A] flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Ask Novera AI to Convert to {selectedMarket.currency}</span>
+              </button>
+            )}
 
             <div className="p-3.5 rounded-xl bg-[#0B0F17] border border-[#1E293B] flex items-start gap-2.5 text-xs text-[#94A3B8]">
               <Info className="w-4 h-4 text-[#FFB547] shrink-0 mt-0.5" />
               <span>
-                Demo checkout — payments not enabled. No card details are requested or processed.
+                Demo checkout — live payment processing is not enabled. Never share OTPs, PINs, CVVs, or full card numbers.
               </span>
             </div>
 
@@ -269,7 +286,7 @@ export function CartPage() {
               onClick={() => setDemoSubmitted(true)}
               className="w-full py-3 px-5 rounded-xl bg-[#087F5B] hover:bg-[#099268] text-white text-xs font-semibold transition-colors"
             >
-              Simulate Demo Order Review
+              Demo Checkout Review
             </button>
           </div>
         </div>
@@ -279,16 +296,16 @@ export function CartPage() {
 }
 
 export function WishlistPage() {
-  const { wishlistProducts, navigate, openAIWithPrompt } = useCommerce();
+  const { wishlistProducts, navigate } = useCommerce();
 
   return (
     <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       <div className="border-b border-[#1E293B] pb-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#087F5B] mb-1">
-          SAVED FOR LATER
+          Saved Items
         </p>
         <h1 className="font-display text-3xl font-bold text-white">
-          Saved Wishlist ({wishlistProducts.length})
+          Wishlist ({wishlistProducts.length})
         </h1>
       </div>
 
@@ -297,27 +314,18 @@ export function WishlistPage() {
           <Heart className="w-10 h-10 text-[#087F5B] mx-auto" />
           <h2 className="text-lg font-bold text-white">No saved products yet</h2>
           <p className="text-xs text-[#94A3B8]">
-            Tap the heart icon on any product card to save items for comparison.
+            Save products from any product detail page to compare them later.
           </p>
-          <div className="flex justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => navigate('/shop')}
-              className="py-2.5 px-5 rounded-xl bg-[#087F5B] text-white text-xs font-semibold"
-            >
-              Explore Products
-            </button>
-            <button
-              type="button"
-              onClick={() => openAIWithPrompt('Compare two laptops for me')}
-              className="py-2.5 px-5 rounded-xl bg-[#0B0F17] border border-[#1E293B] text-[#C8F75A] text-xs font-semibold"
-            >
-              Compare with Novera AI
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/shop')}
+            className="py-2.5 px-5 rounded-xl bg-[#087F5B] text-white text-xs font-semibold"
+          >
+            Browse Products
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {wishlistProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
@@ -334,7 +342,7 @@ export function OrdersPage() {
     <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       <div className="border-b border-[#1E293B] pb-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#087F5B] mb-1">
-          ORDER MANAGEMENT & SUPPORT
+          Order Tracking &amp; Support
         </p>
         <h1 className="font-display text-3xl font-bold text-white">Orders</h1>
       </div>
@@ -344,26 +352,26 @@ export function OrdersPage() {
           <PackageCheck className="w-6 h-6 text-[#087F5B]" />
         </div>
         <h2 className="text-xl font-bold text-white">
-          Demonstration Environment — Order Support via Novera AI
+          Order Tracking &amp; Cancellation Support
         </h2>
         <p className="text-sm text-[#CBD5E1] leading-relaxed">
-          Live customer account authentication and payment order history are in demonstration mode. If you have an enquiry regarding an order, delivery timeline, or escalation, Novera AI is connected to our live customer support workflow.
+          You can request order tracking by providing your order number to Novera AI. Cancellation may be possible before an order has been dispatched.
         </p>
         <div className="flex flex-wrap gap-3 pt-2">
           <button
             type="button"
-            onClick={() => openAIWithPrompt('I need help with an order')}
+            onClick={() => openAIWithPrompt('I want to track or check the status of my order.')}
             className="py-2.5 px-5 rounded-xl bg-[#087F5B] hover:bg-[#099268] text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#C8F75A]" />
-            <span>Ask Novera AI: &ldquo;I need help with an order&rdquo;</span>
+            <span>Ask Novera AI About an Order</span>
           </button>
           <button
             type="button"
-            onClick={() => navigate('/shop')}
+            onClick={() => navigate('/help')}
             className="py-2.5 px-5 rounded-xl bg-[#0B0F17] border border-[#1E293B] text-white text-xs font-semibold"
           >
-            Continue Shopping
+            View Support Policies
           </button>
         </div>
       </div>

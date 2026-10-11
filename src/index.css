@@ -24,27 +24,41 @@
   }
 }
 
-/* Vibrant luminous surface utilities */
-.novera-hero-glow {
+/* Restrained, sophisticated brand illumination derived from original Novera HEX codes (#101828, #087F5B, #C8F75A) */
+.novera-hero-illumination {
   background:
-    radial-gradient(circle at 18% 22%, rgba(8, 127, 91, 0.34) 0%, transparent 48%),
-    radial-gradient(circle at 82% 28%, rgba(200, 247, 90, 0.16) 0%, transparent 42%),
-    linear-gradient(180deg, #101828 0%, #0B0F17 100%);
-}
-
-.novera-ai-mesh {
-  background:
-    radial-gradient(circle at 85% 20%, rgba(200, 247, 90, 0.20) 0%, transparent 45%),
-    radial-gradient(circle at 15% 80%, rgba(8, 127, 91, 0.38) 0%, transparent 50%),
+    radial-gradient(circle at 75% 40%, rgba(8, 127, 91, 0.22) 0%, transparent 55%),
+    radial-gradient(circle at 20% 30%, rgba(200, 247, 90, 0.07) 0%, transparent 45%),
     #101828;
 }
 
-.novera-card-glow {
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(8, 127, 91, 0.18);
+.novera-cta-glow {
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.novera-card-glow:hover {
-  box-shadow: 0 18px 40px -12px rgba(8, 127, 91, 0.32), 0 0 0 1px rgba(200, 247, 90, 0.45);
+.novera-cta-glow:hover,
+.novera-cta-glow:focus-visible {
+  box-shadow: 0 0 24px rgba(200, 247, 90, 0.28);
+}
+
+.novera-card-hover {
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.novera-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(8, 127, 91, 0.65);
+  box-shadow: 0 12px 28px -10px rgba(8, 127, 91, 0.22);
+}
+
+.novera-ai-halo {
+  box-shadow: 0 0 0 1px rgba(200, 247, 90, 0.35), 0 8px 24px rgba(8, 127, 91, 0.38);
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.novera-ai-halo:hover,
+.novera-ai-halo:focus-visible {
+  box-shadow: 0 0 0 1px rgba(200, 247, 90, 0.65), 0 10px 28px rgba(200, 247, 90, 0.22);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -56,7 +70,6 @@
   }
 }
 
-/* Custom subtle scrollbars for dark mode */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -67,10 +80,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #087F5B;
+  background: #1E293B;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #C8F75A;
+  background: #087F5B;
 }

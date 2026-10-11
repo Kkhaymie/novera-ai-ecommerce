@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { NOVERA_MARKETS, SAMPLE_SHOWCASE_PRODUCTS } from '../data/catalogue';
+import { NOVERA_CATALOGUE_PRODUCTS, NOVERA_MARKETS } from '../data/catalogue';
 import {
   CartItem,
   ChatMessage,
@@ -15,12 +15,6 @@ export interface ToastNotice {
   detail?: string;
 }
 
-export interface CatalogueSyncStatus {
-  loading: boolean;
-  source: 'google_sheets_live' | 'sample_showcase_fallback';
-  notice: string;
-}
-
 interface CommerceContextValue {
   // Routing
   currentPath: string;
@@ -31,10 +25,8 @@ interface CommerceContextValue {
   selectedMarket: CountryMarket;
   setSelectedCountryCode: (code: CountryCode) => void;
 
-  // Products & Filtering
+  // 178-Product Catalogue & Filtering
   products: NoveraProduct[];
-  isSampleCatalogue: boolean;
-  catalogueStatus: CatalogueSyncStatus;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   activeCategory: string;
@@ -58,11 +50,13 @@ interface CommerceContextValue {
   wishlistProducts: NoveraProduct[];
 
   // Novera AI Chat
+  sessionId: string;
   chatMessages: ChatMessage[];
   isChatOpen: boolean;
   setIsChatOpen: (open: boolean) => void;
   isSendingChat: boolean;
   sendChatMessage: (messageText: string) => Promise<void>;
+  retryFailedMessage: (errorMessageId: string, originalPrompt: string) => Promise<void>;
   clearChatHistory: () => void;
   openAIWithPrompt: (promptText?: string) => void;
 
@@ -75,17 +69,36 @@ interface CommerceContextValue {
 const CommerceContext = createContext<CommerceContextValue | null>(null);
 
 const STORAGE_KEYS = {
-  COUNTRY: 'novera_country_code_v1',
-  CART: 'novera_cart_items_v1',
-  WISHLIST: 'novera_wishlist_ids_v1',
-  CHAT: 'novera_chat_history_v1',
+  COUNTRY: 'novera_country_code_v2',
+  CART: 'novera_cart_items_v2',
+  WISHLIST: 'novera_wishlist_ids_v2',
+  CHAT: 'novera_chat_history_v2',
+  SESSION_ID: 'novera_web_session_id_v1',
 };
+
+function getOrCreateSessionId(): string {
+  try {
+    const existing = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
+    if (existing && existing.startsWith('novera-web-session-')) {
+      return existing;
+    }
+    const randomPart =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const created = `novera-web-session-${randomPart}`;
+    localStorage.setItem(STORAGE_KEYS.SESSION_ID, created);
+    return created;
+  } catch {
+    return `novera-web-session-${Date.now()}`;
+  }
+}
 
 const INITIAL_WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome-msg',
   role: 'assistant',
   content:
-    'Welcome to Novera AI — Your Personal Shopping Intelligence. Ask me to find products from the live Novera catalogue, compare technical specifications, convert prices across NGN, GHS, ZAR, KES, TZS, or XOF, or check shipping and return policies.',
+    'Hello! I am Novera AI, your personal shopping assistant. Ask me to find products across our 178-item catalogue, check prices or specifications, convert NGN prices into GHS, ZAR, KES, TZS, or XOF, or answer questions about delivery and returns.',
   timestamp: new Date().toISOString(),
 };
 
@@ -125,7 +138,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       setToasts((prev) => [...prev.slice(-2), { id, title, detail }]);
       setTimeout(() => {
         dismissToast(id);
-      }, 3600);
+      }, 3400);
     },
     [dismissToast]
   );
@@ -138,7 +151,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
         return saved;
       }
     } catch {
-      // ignore storage errors
+      // ignore
     }
     return 'NG';
   });
@@ -158,53 +171,16 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       const market = NOVERA_MARKETS.find((m) => m.code === code);
       if (market) {
         pushToast(
-          `Shopping market set to ${market.name} (${market.currency})`,
-          'Ask Novera AI anytime for live currency conversions.'
+          `Market set to ${market.name} (${market.currency})`,
+          'Catalogue base prices are in NGN (₦). Ask Novera AI for currency conversion.'
         );
       }
     },
     [pushToast]
   );
 
-  // 4. Products, Catalogue Sync Status & Search/Category State
-  const [products] = useState<NoveraProduct[]>(SAMPLE_SHOWCASE_PRODUCTS);
-  const [catalogueStatus, setCatalogueStatus] = useState<CatalogueSyncStatus>({
-    loading: true,
-    source: 'sample_showcase_fallback',
-    notice: 'Checking Google Sheets catalogue synchronization...',
-  });
-
-  useEffect(() => {
-    let mounted = true;
-    fetch('/api/catalogue/status')
-      .then((res) => res.json())
-      .then((data) => {
-        if (mounted && data) {
-          setCatalogueStatus({
-            loading: false,
-            source: data.source || 'sample_showcase_fallback',
-            notice:
-              data.notice ||
-              'Displaying labeled Sample Showcase records while Novera AI queries live n8n catalogue records.',
-          });
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setCatalogueStatus({
-            loading: false,
-            source: 'sample_showcase_fallback',
-            notice:
-              'Displaying labeled Sample Showcase records. Use Novera AI for live catalogue enquiries.',
-          });
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const isSampleCatalogue = catalogueStatus.source === 'sample_showcase_fallback';
+  // 4. Complete 178-Product Catalogue
+  const [products] = useState<NoveraProduct[]>(NOVERA_CATALOGUE_PRODUCTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>('All Categories');
 
@@ -245,7 +221,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
         }
         return [...prev, { product, quantity }];
       });
-      pushToast(`Added to bag`, `${product.name} (${quantity}x)`);
+      pushToast(`Added to Cart`, `${product.name} (${quantity}x)`);
     },
     [pushToast]
   );
@@ -253,7 +229,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const removeFromCart = useCallback(
     (productId: string) => {
       setCart((prev) => prev.filter((item) => item.product.id !== productId));
-      pushToast('Removed item from shopping bag');
+      pushToast('Removed item from cart');
     },
     [pushToast]
   );
@@ -270,7 +246,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setCart([]);
-    pushToast('Shopping bag cleared');
+    pushToast('Cart cleared');
   }, [pushToast]);
 
   const cartCount = useMemo(
@@ -278,11 +254,10 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     [cart]
   );
 
-  // Group subtotals strictly by compatible currency (never sum different currencies into a misleading total)
   const cartSubtotalsByCurrency = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const item of cart) {
-      const curr = item.product.currency;
+      const curr = item.product.currency || 'NGN';
       totals[curr] = (totals[curr] || 0) + item.product.price * item.quantity;
     }
     return totals;
@@ -336,7 +311,8 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     [products, wishlistIds]
   );
 
-  // 7. Novera AI Real n8n Chat Integration
+  // 7. Novera AI Production Webhook Chat Integration with Stable Session ID
+  const [sessionId] = useState<string>(() => getOrCreateSessionId());
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.CHAT);
@@ -351,6 +327,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   });
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [isSendingChat, setIsSendingChat] = useState<boolean>(false);
+  const inFlightChatRef = React.useRef<boolean>(false);
 
   useEffect(() => {
     try {
@@ -360,44 +337,56 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [chatMessages]);
 
-  const sendChatMessage = useCallback(
-    async (messageText: string) => {
-      const trimmed = messageText.trim();
-      if (!trimmed || isSendingChat) return;
-
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: trimmed,
-        timestamp: new Date().toISOString(),
+  const executeChatRequest = useCallback(
+    async (trimmedPrompt: string) => {
+      const requestOnce = async (): Promise<{ response: Response; data: NoveraAIResponse }> => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 55000);
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({
+              message: trimmedPrompt,
+              sessionId,
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          const data: NoveraAIResponse = await response.json();
+          return { response, data };
+        } catch (err) {
+          clearTimeout(timeoutId);
+          throw err;
+        }
       };
 
-      setChatMessages((prev) => [...prev, userMessage]);
-      setIsSendingChat(true);
-
       try {
-        const response = await fetch('/api/novera-ai', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: trimmed,
-          }),
-        });
+        let result: { response: Response; data: NoveraAIResponse };
+        try {
+          result = await requestOnce();
+        } catch (firstErr) {
+          console.warn('[Novera AI Client] First request interrupted; retrying automatically...', firstErr);
+          await new Promise((r) => setTimeout(r, 600));
+          result = await requestOnce();
+        }
 
-        const data: NoveraAIResponse = await response.json();
+        const { response, data } = result;
 
         if (!response.ok || !data.ok) {
+          console.warn('[Novera AI Client] Non-OK response from /api/chat:', response.status, data.error);
           const errorReply: ChatMessage = {
             id: `assistant-err-${Date.now()}`,
             role: 'assistant',
             content:
               data.error ||
-              'Novera AI is temporarily unavailable. Please retry your message in a moment.',
+              'Novera AI is temporarily busy right now. Please click Retry to resend your question.',
             timestamp: new Date().toISOString(),
             isError: true,
-            originalPrompt: trimmed,
+            originalPrompt: trimmedPrompt,
           };
           setChatMessages((prev) => [...prev, errorReply]);
           return;
@@ -412,22 +401,60 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
         };
 
         setChatMessages((prev) => [...prev, assistantMessage]);
-      } catch {
+      } catch (err) {
+        console.error('[Novera AI Client] Connection error while reaching /api/chat:', err);
         const networkErrorMsg: ChatMessage = {
           id: `assistant-neterr-${Date.now()}`,
           role: 'assistant',
           content:
-            'Network connection interrupted while reaching Novera AI. Please check your connection and click Retry.',
+            'Unable to reach Novera AI right now. Please check your connection and click Retry.',
           timestamp: new Date().toISOString(),
           isError: true,
-          originalPrompt: trimmed,
+          originalPrompt: trimmedPrompt,
         };
         setChatMessages((prev) => [...prev, networkErrorMsg]);
       } finally {
+        inFlightChatRef.current = false;
         setIsSendingChat(false);
       }
     },
-    [isSendingChat]
+    [sessionId]
+  );
+
+  const sendChatMessage = useCallback(
+    async (messageText: string) => {
+      const trimmed = messageText.trim();
+      if (!trimmed || isSendingChat || inFlightChatRef.current) return;
+
+      inFlightChatRef.current = true;
+      setIsSendingChat(true);
+
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: trimmed,
+        timestamp: new Date().toISOString(),
+      };
+
+      setChatMessages((prev) => [...prev, userMessage]);
+      await executeChatRequest(trimmed);
+    },
+    [isSendingChat, executeChatRequest]
+  );
+
+  const retryFailedMessage = useCallback(
+    async (errorMessageId: string, originalPrompt: string) => {
+      const trimmed = originalPrompt.trim();
+      if (!trimmed || isSendingChat || inFlightChatRef.current) return;
+
+      inFlightChatRef.current = true;
+      setIsSendingChat(true);
+
+      // Remove the failed assistant bubble without adding a duplicate user message
+      setChatMessages((prev) => prev.filter((msg) => msg.id !== errorMessageId));
+      await executeChatRequest(trimmed);
+    },
+    [isSendingChat, executeChatRequest]
   );
 
   const clearChatHistory = useCallback(() => {
@@ -458,8 +485,6 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       selectedMarket,
       setSelectedCountryCode,
       products,
-      isSampleCatalogue,
-      catalogueStatus,
       searchQuery,
       setSearchQuery,
       activeCategory,
@@ -477,11 +502,13 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       toggleWishlist,
       isInWishlist,
       wishlistProducts,
+      sessionId,
       chatMessages,
       isChatOpen,
       setIsChatOpen,
       isSendingChat,
       sendChatMessage,
+      retryFailedMessage,
       clearChatHistory,
       openAIWithPrompt,
       toasts,
@@ -495,8 +522,6 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       selectedMarket,
       setSelectedCountryCode,
       products,
-      isSampleCatalogue,
-      catalogueStatus,
       searchQuery,
       activeCategory,
       cart,
@@ -511,10 +536,12 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       toggleWishlist,
       isInWishlist,
       wishlistProducts,
+      sessionId,
       chatMessages,
       isChatOpen,
       isSendingChat,
       sendChatMessage,
+      retryFailedMessage,
       clearChatHistory,
       openAIWithPrompt,
       toasts,

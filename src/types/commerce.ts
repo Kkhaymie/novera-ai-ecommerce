@@ -16,18 +16,40 @@ export interface ProductSpecification {
   value: string;
 }
 
+export type CatalogueCategory =
+  | 'Fashion'
+  | 'Footwear'
+  | 'Beauty'
+  | 'Phones & Accessories'
+  | 'Computers'
+  | 'Home & Kitchen'
+  | 'Groceries'
+  | 'Baby & Kids'
+  | 'Sports & Fitness'
+  | 'Furniture & Office'
+  | 'Electronics';
+
 export interface NoveraProduct {
+  /** Stable identifier: NG0001 through NG0178 */
   id: string;
+  product_id: string;
   name: string;
+  product_name: string;
+  category: CatalogueCategory;
   brand: string;
-  category: string;
   price: number;
+  price_ngn: string;
   currency: CurrencyCode;
-  imageUrl: string;
+  stock_quantity: number;
+  availability: 'In Stock' | 'Low Stock' | 'Not confirmed' | string;
+  colour: string;
+  warranty: string;
+  delivery_available: string;
   description: string;
-  stockStatus?: string;
-  specifications?: ProductSpecification[];
-  isSampleRecord: boolean;
+  /** Optional verified studio image path; undefined uses high-definition category visual presentation */
+  imageUrl?: string;
+  /** True for NG0131–NG0178 additional website showcase records with unconfirmed availability */
+  isUnconfirmedShowcaseRecord: boolean;
   featured?: boolean;
 }
 
@@ -63,12 +85,4 @@ export interface NoveraAIResponse {
   products?: ChatProductCard[];
   error?: string;
   statusCode?: number;
-}
-
-export interface CatalogueResponse {
-  ok: boolean;
-  source: 'google_sheets_live' | 'sample_showcase_fallback';
-  lastCheckedAt: string;
-  notice: string;
-  products: NoveraProduct[];
 }

@@ -108,11 +108,16 @@ export function CartDrawer() {
                     key={product.id}
                     className="flex gap-4 p-3.5 rounded-xl bg-[#0B0F17] border border-[#1E293B]"
                   >
-                    <div className="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-[#18181B]">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-[#F8FAFC] border border-[#CBD5E1]">
                       <ResilientImage
                         src={product.imageUrl}
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        category={product.category}
+                        brand={product.brand}
+                        colour={product.colour}
+                        productId={product.product_id}
+                        compact
+                        className="w-full h-full object-contain"
                       />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
